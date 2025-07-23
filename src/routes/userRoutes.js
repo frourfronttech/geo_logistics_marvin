@@ -1,8 +1,20 @@
 const express = require('express');
 const router = express.Router();
+const { body } = require('express-validator');
 const userController = require('../controllers/userController');
 
-// Placeholder for user registration
-router.post('/register', userController.register);
+router.post(
+  '/register',
+  [
+    body('email').isEmail().withMessage('Please enter a valid email'),
+    body('password')
+      .isLength({ min: 6 })
+      .withMessage('Password must be at least 6 characters long'),
+    body('user_type')
+      .isIn(['rider', 'driver'])
+      .withMessage('Invalid user type'),
+  ],
+  userController.register
+);
 
 module.exports = router;

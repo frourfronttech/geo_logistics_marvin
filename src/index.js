@@ -13,6 +13,10 @@ const userRoutes = require('./routes/userRoutes');
 
 app.use('/api/users', userRoutes);
 
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 app.get('/', (req, res) => {
   res.send('Hello, Navigate App!');
 });
@@ -24,6 +28,11 @@ app.get('/test-db', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: "Internal Server Error" });
 });
 
 app.listen(port, () => {
