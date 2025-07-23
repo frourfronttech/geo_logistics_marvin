@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const db = require('../db');
 
@@ -21,6 +22,34 @@ exports.register = async (req, res, next) => {
     if (err.code === '23505') {
       return res.status(409).json({ message: 'Email already in use' });
     }
+    next(err);
+  }
+};
+
+exports.login = async (req, res, next) => {
+  const { email, password } = req.body;
+
+  try {
+    const userQuery = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = userQuery.rows[0];
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, user_type: user.user_type },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.status(200).json({ token });
+  } catch (err) {
     next(err);
   }
 };
