@@ -1,0 +1,61 @@
+const db = require('../db');
+
+// Mock fuel price API - in a real app, this would be an external API call
+const getFuelPrice = async (fuelType, city) => {
+  // In a real implementation, you would fetch this from a service like FuelAPI or GlobalPetrolPrices
+  // For now, we'll use mock data.
+  const mockPrices = {
+    petrol: { 'New York': 1.5, 'London': 1.8 },
+    diesel: { 'New York': 1.4, 'London': 1.7 },
+  };
+  return mockPrices[fuelType]?.[city] || 1.6; // Default price
+};
+
+exports.estimateFare = async (req, res, next) => {
+  const { vehicle_id, distance_km, destination_city } = req.body;
+
+  if (!vehicle_id || !distance_km || !destination_city) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
+  try {
+    // 1. Get vehicle's fuel consumption
+    const vehicleResult = await db.query('SELECT avg_fuel_consumption, fuel_type FROM vehicles WHERE id = $1', [vehicle_id]);
+    if (vehicleResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    }
+    const { avg_fuel_consumption, fuel_type } = vehicleResult.rows[0];
+
+    if (!avg_fuel_consumption) {
+      return res.status(400).json({ success: false, message: 'Vehicle does not have average fuel consumption set' });
+    }
+
+    // 2. Get real-time fuel price
+    const fuelPricePerLiter = await getFuelPrice(fuel_type, destination_city);
+
+    // 3. Calculate fare
+    // Formula: average fuel consumption = (fuel used / number of kilometers) x 100
+    // So, fuel used = (average fuel consumption / 100) * number of kilometers
+    const fuelUsedLiters = (avg_fuel_consumption / 100) * distance_km;
+    const estimatedCost = fuelUsedLiters * fuelPricePerLiter;
+
+    // Add a profit margin for the driver (e.g., 20%)
+    const profitMargin = 1.20;
+    const estimatedFare = estimatedCost * profitMargin;
+
+    res.status(200).json({
+      success: true,
+      estimated_cost: estimatedCost.toFixed(2),
+      suggested_fare: estimatedFare.toFixed(2),
+      details: {
+        distance_km,
+        fuel_price_per_liter: fuelPricePerLiter,
+        avg_fuel_consumption_l_100km: avg_fuel_consumption,
+        fuel_used_liters: fuelUsedLiters.toFixed(2),
+      }
+    });
+
+  } catch (err) {
+    next(err);
+  }
+};
