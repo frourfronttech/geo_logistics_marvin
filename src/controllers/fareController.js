@@ -1,20 +1,10 @@
 const db = require('../db');
-
-// Mock fuel price API - in a real app, this would be an external API call
-const getFuelPrice = async (fuelType, city) => {
-  // In a real implementation, you would fetch this from a service like FuelAPI or GlobalPetrolPrices
-  // For now, we'll use mock data.
-  const mockPrices = {
-    petrol: { 'New York': 1.5, 'London': 1.8 },
-    diesel: { 'New York': 1.4, 'London': 1.7 },
-  };
-  return mockPrices[fuelType]?.[city] || 1.6; // Default price
-};
+const { getFuelPrice } = require('../services/fuelPriceService');
 
 exports.estimateFare = async (req, res, next) => {
-  const { vehicle_id, distance_km, destination_city } = req.body;
+  const { vehicle_id, distance_km } = req.body;
 
-  if (!vehicle_id || !distance_km || !destination_city) {
+  if (!vehicle_id || !distance_km) {
     return res.status(400).json({ success: false, message: 'Missing required fields' });
   }
 
@@ -31,7 +21,7 @@ exports.estimateFare = async (req, res, next) => {
     }
 
     // 2. Get real-time fuel price
-    const fuelPricePerLiter = await getFuelPrice(fuel_type, destination_city);
+    const fuelPricePerLiter = await getFuelPrice(fuel_type);
 
     // 3. Calculate fare
     // Formula: average fuel consumption = (fuel used / number of kilometers) x 100
