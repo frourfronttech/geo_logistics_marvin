@@ -6,7 +6,7 @@ const db = require('../db');
 exports.register = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(400).json({ success: false, errors: errors.array() });
   }
 
   const { email, password, user_type, full_name, phone_number } = req.body;
@@ -20,7 +20,7 @@ exports.register = async (req, res, next) => {
     res.status(201).json({ user: result.rows[0] });
   } catch (err) {
     if (err.code === '23505') {
-      return res.status(409).json({ message: 'Email already in use' });
+      return res.status(409).json({ success: false, message: 'Email already in use' });
     }
     next(err);
   }
@@ -34,12 +34,12 @@ exports.login = async (req, res, next) => {
     const user = userQuery.rows[0];
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
 
     const token = jwt.sign(
