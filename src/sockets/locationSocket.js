@@ -2,9 +2,14 @@ const driverLocations = new Map();
 
 module.exports = (io) => {
   io.on('connection', (socket) => {
+    if (socket.user.role !== 'driver') {
+      return;
+    }
+
     socket.on('locationUpdate', (data) => {
-      const { driverId, lat, lng, bookingId } = data;
-      if (!driverId || !lat || !lng) {
+      const { lat, lng, bookingId } = data;
+      const driverId = socket.user.id;
+      if (!lat || !lng) {
         return;
       }
       driverLocations.set(driverId, { lat, lng, timestamp: Date.now() });
@@ -20,8 +25,10 @@ module.exports = (io) => {
     });
 
     socket.on('disconnect', () => {
-      // Optional: clean up driver location on disconnect
-      // This would require mapping socket.id to driverId on connection
+      const driverId = socket.user.id;
+      if (driverId) {
+        driverLocations.delete(driverId);
+      }
     });
   });
 };
