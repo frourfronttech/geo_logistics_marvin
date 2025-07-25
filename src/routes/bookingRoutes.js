@@ -6,7 +6,9 @@ const bookingController = require('../controllers/bookingController');
 
 // Rider routes
 router.post('/', [auth, requireRole('rider')], bookingController.createBooking);
+router.get('/mine', [auth, requireRole('rider')], bookingController.getMyBookings);
 router.get('/', auth, bookingController.getPastBookings);
+router.get('/:id', auth, bookingController.getBookingById);
 
 // Driver routes
 router.get('/available', [auth, requireRole('driver')], bookingController.getAvailableBookings);

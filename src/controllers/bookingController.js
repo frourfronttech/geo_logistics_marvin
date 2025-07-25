@@ -118,6 +118,47 @@ exports.completeTrip = async (req, res, next) => {
   }
 };
 
+exports.getMyBookings = async (req, res, next) => {
+  const userId = req.user.id;
+  try {
+    const bookings = await db.query(
+      `SELECT b.*, u.full_name AS driver_name, v.make AS vehicle_make, v.model AS vehicle_model
+       FROM bookings b
+       LEFT JOIN users u ON b.driver_id = u.id
+       LEFT JOIN vehicles v ON b.vehicle_id = v.id
+       WHERE b.rider_id = $1
+       ORDER BY b.created_at DESC`,
+      [userId]
+    );
+    res.json({ bookings: bookings.rows });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getBookingById = async (req, res, next) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  const userRole = req.user.role;
+
+  try {
+    const result = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+    const booking = result.rows[0];
+    if (userRole === 'rider' && booking.rider_id !== userId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    if (userRole === 'driver' && booking.driver_id !== userId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    res.status(200).json(booking);
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.getPastBookings = async (req, res, next) => {
   const userId = req.user.id;
   const userRole = req.user.role;
