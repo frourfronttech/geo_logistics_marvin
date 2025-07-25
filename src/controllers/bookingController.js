@@ -1,6 +1,9 @@
 const db = require('../db');
 
-exports.createBooking = async (req, res, next) => {
+module.exports = (io) => {
+  const exports = {};
+
+  exports.createBooking = async (req, res, next) => {
   const { pickup_location, dropoff_location, distance, estimated_fare } = req.body;
   const rider_id = req.user.id;
 
@@ -13,10 +16,15 @@ exports.createBooking = async (req, res, next) => {
       'INSERT INTO bookings (rider_id, pickup_location, dropoff_location, distance, estimated_fare) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [rider_id, pickup_location, dropoff_location, distance, estimated_fare]
     );
-    res.status(201).json(result.rows[0]);
+    const newBooking = result.rows[0];
+    io.emit('newBooking', newBooking);
+    res.status(201).json(newBooking);
   } catch (err) {
     next(err);
   }
+};
+
+  return exports;
 };
 
 exports.getAvailableBookings = async (req, res, next) => {
@@ -52,7 +60,13 @@ exports.acceptBooking = async (req, res, next) => {
       return res.status(409).json({ success: false, message: 'Booking was already accepted by another driver' });
     }
 
-    res.status(200).json(result.rows[0]);
+    const updatedBooking = result.rows[0];
+    io.to(`booking-${id}`).emit('bookingStatusUpdate', {
+      bookingId: id,
+      status: 'accepted',
+      driverId: driver_id,
+    });
+    res.status(200).json(updatedBooking);
   } catch (err) {
     next(err);
   }
@@ -82,7 +96,12 @@ exports.startTrip = async (req, res, next) => {
       [id]
     );
 
-    res.status(200).json(result.rows[0]);
+    const updatedBooking = result.rows[0];
+    io.to(`booking-${id}`).emit('bookingStatusUpdate', {
+      bookingId: id,
+      status: 'in_progress',
+    });
+    res.status(200).json(updatedBooking);
   } catch (err) {
     next(err);
   }
@@ -112,7 +131,12 @@ exports.completeTrip = async (req, res, next) => {
       [id]
     );
 
-    res.status(200).json(result.rows[0]);
+    const updatedBooking = result.rows[0];
+    io.to(`booking-${id}`).emit('bookingStatusUpdate', {
+      bookingId: id,
+      status: 'completed',
+    });
+    res.status(200).json(updatedBooking);
   } catch (err) {
     next(err);
   }

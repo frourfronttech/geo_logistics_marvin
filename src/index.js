@@ -16,7 +16,7 @@ const fareRoutes = require('./routes/fareRoutes');
 app.use('/api/users', userRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/fares', fareRoutes);
-const driverRoutes = require('./routes/driverRoutes');
+const bookingRoutes = require('./routes/bookingRoutes')(io);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/drivers', driverRoutes);
 
@@ -58,6 +58,7 @@ const io = new Server(server, {
 
 const jwt = require('jsonwebtoken');
 const locationSocket = require('./sockets/locationSocket');
+const bookingSocket = require('./sockets/bookingSocket');
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
@@ -74,6 +75,7 @@ io.use((socket, next) => {
 });
 
 locationSocket(io);
+bookingSocket(io);
 
 server.listen(port, () => {
   console.log(`Server is running on port ${port}`);
