@@ -46,6 +46,20 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: "Internal Server Error" });
 });
 
-app.listen(port, () => {
+const http = require('http');
+const { Server } = require('socket.io');
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: '*', // Configure for production
+  },
+});
+
+const locationSocket = require('./sockets/locationSocket');
+
+locationSocket(io);
+
+server.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
