@@ -16,7 +16,9 @@ const fareRoutes = require('./routes/fareRoutes');
 app.use('/api/users', userRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/fares', fareRoutes);
+const driverRoutes = require('./routes/driverRoutes');
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/drivers', driverRoutes);
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
