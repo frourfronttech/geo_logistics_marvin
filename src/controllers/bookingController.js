@@ -59,16 +59,79 @@ exports.acceptBooking = async (req, res, next) => {
 };
 
 exports.startTrip = async (req, res, next) => {
-  // To be implemented
-  res.status(200).json({ success: true, message: 'Start trip placeholder' });
+  const { id } = req.params;
+  const driver_id = req.user.id;
+
+  try {
+    const bookingResult = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+    if (bookingResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    const booking = bookingResult.rows[0];
+    if (booking.status !== 'accepted') {
+      return res.status(400).json({ success: false, message: 'Booking cannot be started' });
+    }
+
+    if (booking.driver_id !== driver_id) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to start this trip' });
+    }
+
+    const result = await db.query(
+      "UPDATE bookings SET status = 'in_progress', started_at = NOW() WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
 };
 
 exports.completeTrip = async (req, res, next) => {
-  // To be implemented
-  res.status(200).json({ success: true, message: 'Complete trip placeholder' });
+  const { id } = req.params;
+  const driver_id = req.user.id;
+
+  try {
+    const bookingResult = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+    if (bookingResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    const booking = bookingResult.rows[0];
+    if (booking.status !== 'in_progress') {
+      return res.status(400).json({ success: false, message: 'Booking cannot be completed' });
+    }
+
+    if (booking.driver_id !== driver_id) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to complete this trip' });
+    }
+
+    const result = await db.query(
+      "UPDATE bookings SET status = 'completed', completed_at = NOW() WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
 };
 
 exports.getPastBookings = async (req, res, next) => {
-  // To be implemented
-  res.status(200).json({ success: true, message: 'Past bookings placeholder' });
+  const userId = req.user.id;
+  const userRole = req.user.role;
+
+  try {
+    let query;
+    if (userRole === 'driver') {
+      query = 'SELECT * FROM bookings WHERE driver_id = $1 ORDER BY created_at DESC';
+    } else {
+      query = 'SELECT * FROM bookings WHERE rider_id = $1 ORDER BY created_at DESC';
+    }
+    const result = await db.query(query, [userId]);
+    res.status(200).json(result.rows);
+  } catch (err) {
+    next(err);
+  }
 };
