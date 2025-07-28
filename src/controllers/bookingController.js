@@ -1,28 +1,47 @@
 const db = require('../db');
+const autoMatchingService = require('../services/autoMatchingService');
 
 module.exports = (io) => {
   const exports = {};
 
   exports.createBooking = async (req, res, next) => {
-  const { pickup_location, dropoff_location, distance, estimated_fare } = req.body;
-  const rider_id = req.user.id;
+    const { pickup_location, dropoff_location, distance, estimated_fare } = req.body;
+    const rider_id = req.user.id;
 
-  if (!pickup_location || !dropoff_location || !distance || !estimated_fare) {
-    return res.status(400).json({ success: false, message: 'Missing required fields' });
-  }
+    if (!pickup_location || !dropoff_location || !distance || !estimated_fare) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
 
-  try {
-    const result = await db.query(
-      'INSERT INTO bookings (rider_id, pickup_location, dropoff_location, distance, estimated_fare) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [rider_id, pickup_location, dropoff_location, distance, estimated_fare]
-    );
-    const newBooking = result.rows[0];
-    io.emit('newBooking', newBooking);
-    res.status(201).json(newBooking);
-  } catch (err) {
-    next(err);
-  }
-};
+    try {
+      const newBookingResult = await db.query(
+        'INSERT INTO bookings (rider_id, pickup_location, dropoff_location, distance, estimated_fare) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        [rider_id, pickup_location, dropoff_location, distance, estimated_fare]
+      );
+      const newBooking = newBookingResult.rows[0];
+
+      const bestDriver = await autoMatchingService.findBestDriver(newBooking);
+
+      if (bestDriver) {
+        await db.query(
+          "UPDATE bookings SET driver_id = $1, status = 'accepted', accepted_at = NOW() WHERE id = $2",
+          [bestDriver.id, newBooking.id]
+        );
+        newBooking.driver_id = bestDriver.id;
+        newBooking.status = 'accepted';
+        io.to(`booking-${newBooking.id}`).emit('bookingStatusUpdate', {
+          bookingId: newBooking.id,
+          status: 'accepted',
+          driverId: bestDriver.id,
+        });
+      } else {
+        io.emit('newBooking', newBooking);
+      }
+
+      res.status(201).json(newBooking);
+    } catch (err) {
+      next(err);
+    }
+  };
 
   return exports;
 };
