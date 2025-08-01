@@ -17,6 +17,7 @@ router.get('/available', [auth, requireRole('driver')], bookingController.getAva
 router.patch('/:id/accept', [auth, requireRole('driver')], bookingController.acceptBooking);
 router.patch('/:id/start', [auth, requireRole('driver')], bookingController.startTrip);
 router.patch('/:id/complete', [auth, requireRole('driver')], bookingController.completeTrip);
+router.post('/:id/cancel', auth, bookingController.cancelBooking);
 
   return router;
 };

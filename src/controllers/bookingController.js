@@ -41,6 +41,48 @@ module.exports = (io) => {
     } catch (err) {
       next(err);
     }
+  exports.cancelBooking = async (req, res, next) => {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const { reason } = req.body;
+
+    try {
+      const bookingResult = await db.query('SELECT * FROM bookings WHERE id = $1', [id]);
+      if (bookingResult.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Booking not found' });
+      }
+
+      const booking = bookingResult.rows[0];
+
+      if (booking.status === 'completed' || booking.status === 'cancelled') {
+        return res.status(400).json({ success: false, message: 'Booking cannot be canceled' });
+      }
+
+      if (userRole === 'rider' && booking.rider_id !== userId) {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+      }
+
+      if (userRole === 'driver' && booking.driver_id !== userId) {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+      }
+
+      const result = await db.query(
+        "UPDATE bookings SET status = 'cancelled', canceled_at = NOW(), canceled_by = $1, cancellation_reason = $2 WHERE id = $3 RETURNING *",
+        [userRole, reason, id]
+      );
+
+      const canceledBooking = result.rows[0];
+      io.to(`booking-${id}`).emit('bookingCanceled', {
+        bookingId: id,
+        canceledBy: userRole,
+        reason: reason,
+      });
+
+      res.status(200).json(canceledBooking);
+    } catch (err) {
+      next(err);
+    }
   };
 
   return exports;
